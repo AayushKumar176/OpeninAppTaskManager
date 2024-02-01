@@ -6,6 +6,27 @@ const Task = require('../models/task');
 const Subtask = require('../models/subtask');
 const uuid = require('uuid');
 
+const updateTaskStatus = async (taskId) => {
+    const task = await Task.findById(taskId);
+  
+    if (task) {
+      const subtasks = await Subtask.find({ task_id: taskId });
+  
+      const isAllSubtasksDone = subtasks.every(subtask => subtask.status === 0);
+      const isAnySubtaskInProgress = subtasks.some(subtask => subtask.status === 1);
+  
+      if (isAllSubtasksDone) {
+        task.status = 'DONE';
+      } else if (isAnySubtaskInProgress) {
+        task.status = 'IN_PROGRESS';
+      } else {
+        task.status = 'TODO';
+      }
+  
+      await task.save();
+    }
+  };
+
 // Create Task API
 router.post('/create-task', authenticateToken, async (req, res) => {
   try {
@@ -203,6 +224,8 @@ router.get('/user-tasks', async (req, res) => {
       if (!updatedSubTask) {
         return res.status(404).json({ error: 'Subtask not found.' });
       }
+      // Manually update the associated task's status
+    await updateTaskStatus(updatedSubTask.task_id);
   
       res.json({ updatedSubTask });
     } catch (error) {
